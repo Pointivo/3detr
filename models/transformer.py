@@ -202,7 +202,7 @@ class MaskedTransformerEncoder(TransformerEncoder):
         if transpose_swap:
             output = output.permute(1, 2, 0).view(bs, c, h, w).contiguous()
 
-        return xyz, output, xyz_inds
+        return xyz, output, xyz_inds.type(torch.int64)
     
     def extra_repr(self):
         radius_str = ", ".join(["%.2f"%(x) for x in self.masking_radius])
