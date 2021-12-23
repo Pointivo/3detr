@@ -340,12 +340,13 @@ class Model3DETR(nn.Module):
 
 
 def build_preencoder(args):
-    mlp_dims = [3 * int(args.use_color), 64, 128, args.enc_dim]
+    mlp_dims = [3 * int(args.use_color), 128, 128, args.enc_dim]
     preencoder = PointnetSAModuleVotes(
         radius=0.2,
-        nsample=64,
+        nsample=128,
         npoint=args.preenc_npoints,
         mlp=mlp_dims,
+        use_xyz=True,
         normalize_xyz=True,
     )
     return preencoder
