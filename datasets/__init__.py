@@ -1,11 +1,13 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 from .scannet import ScannetDetectionDataset, ScannetDatasetConfig
 from .sunrgbd import SunrgbdDetectionDataset, SunrgbdDatasetConfig
+from .telecomtower import TelecomTowerDetectionDataset, TelecomTowerPredictionDataset, TelecomTowerDatasetConfig
 
 
 DATASET_FUNCTIONS = {
     "scannet": [ScannetDetectionDataset, ScannetDatasetConfig],
     "sunrgbd": [SunrgbdDetectionDataset, SunrgbdDatasetConfig],
+    "telecomtower": [TelecomTowerDetectionDataset, TelecomTowerDatasetConfig],
 }
 
 
