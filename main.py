@@ -159,6 +159,9 @@ def do_train(
     print(f"Training started at epoch {args.start_epoch} until {args.max_epoch}.")
     print(f"One training epoch = {num_iters_per_epoch} iters.")
     print(f"One eval epoch = {num_iters_per_eval_epoch} iters.")
+    assert args.log_metrics_every <= num_iters_per_epoch,\
+        f"Training metrics should be logged *at least* once per epoch, to avoid NaNs in AR and mAP. " \
+        f"Current Settings: num_iters_per_epoch={num_iters_per_epoch}, --log_metrics_every={args.log_metrics_every}"
 
     final_eval = os.path.join(args.checkpoint_dir, "final_eval.txt")
     final_eval_pkl = os.path.join(args.checkpoint_dir, "final_eval.pkl")
