@@ -163,7 +163,7 @@ def model_predict(args, models: Dict, dataloaders: Dict, post_process_config_dic
                     pred_out_idx["size_unnormalized"].append(bbox_params[3:6])
                     pred_out_idx["angle_continuous"].append(bbox_params[6])
                     pred_out_idx["sem_cls_prob"].append([parsed_pred_conf])
-                    pred_out_idx["class_label"].append([class_label.astype(np.uint8)])
+                    pred_out_idx["class_label"].append([class_label])
 
                 for key in ["box_corners", "center_unnormalized", "size_unnormalized", "angle_continuous",
                             "sem_cls_prob", "class_label"]:
@@ -178,8 +178,7 @@ def model_predict(args, models: Dict, dataloaders: Dict, post_process_config_dic
             pred_out = outputs["outputs"]
             for key in ["box_corners", "center_unnormalized", "size_unnormalized", "angle_continuous", "sem_cls_prob"]:
                 pred_out[key] = pred_out[key].cpu().numpy()
-            pred_out["class_label"] = np.expand_dims(
-                np.argmax(pred_out["sem_cls_prob"], axis=-1), axis=-1).astype(np.uint8)
+            pred_out["class_label"] = np.expand_dims(np.argmax(pred_out["sem_cls_prob"], axis=-1), axis=-1)
 
         # return a dict of {filename: {bbox_params, bbox_corners}}
         for i, filename in enumerate(batch_data["point_cloud_filename"]):
