@@ -69,7 +69,7 @@ def make_args_parser():
     parser.add_argument("--mlp_dropout", default=0.3, type=float)
     parser.add_argument(
         "--nsemcls",
-        default=-1,
+        default=1,
         type=int,
         help="Number of semantic object classes. Can be inferred from dataset",
     )

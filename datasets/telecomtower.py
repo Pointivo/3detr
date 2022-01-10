@@ -27,17 +27,19 @@ MEAN_COLOR_RGB = np.array([0.5, 0.5, 0.5])  # sunrgbd color is in 0~1 (not relev
 DATA_PATH_V1 = ""  # Replace with path to dataset
 DATA_PATH_V2 = ""  # Not used in the codebase.
 NUM_POINTS_SAMPLING = 500000
+num_semcls_to_type2class_dict = {
+    1: {"antenna": 0},
+    2: {"panel": 0, "dish": 1},
+}
 
 
 class TelecomTowerDatasetConfig(object):
-    def __init__(self):
-        self.num_semcls = 1
+    def __init__(self, args):
+        self.num_semcls = args.nsemcls
         self.num_angle_bin = 24
         self.max_num_obj = 128
-        self.type2class = {
-            "antenna": 0
-        }
-        assert len(self.type2class.keys()) == self.num_semcls, f"It don't make any sense otherwise :/"
+        self.type2class = num_semcls_to_type2class_dict[args.nsemcls]
+        assert len(self.type2class.keys()) == self.num_semcls, f"{len(self.type2class.keys())} != {self.num_semcls}"
         self.class2type = {self.type2class[t]: t for t in self.type2class}
         self.type2onehotclass = copy.deepcopy(self.type2class)
 
