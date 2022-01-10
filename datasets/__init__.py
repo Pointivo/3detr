@@ -16,7 +16,7 @@ def build_dataset(args):
     dataset_config = DATASET_FUNCTIONS[args.dataset_name][1]()
     
     dataset_dict = {
-        "train": dataset_builder(dataset_config, split_set="train", root_dir=args.dataset_root_dir, augment=True),
+        "train": dataset_builder(dataset_config, split_set="train", root_dir=args.dataset_root_dir, augment=False),
         "test": dataset_builder(dataset_config, split_set="val", root_dir=args.dataset_root_dir, augment=False),
     }
     return dataset_dict, dataset_config

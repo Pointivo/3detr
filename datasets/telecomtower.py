@@ -32,8 +32,8 @@ NUM_POINTS_SAMPLING = 500000
 class TelecomTowerDatasetConfig(object):
     def __init__(self):
         self.num_semcls = 1
-        self.num_angle_bin = 12
-        self.max_num_obj = 64
+        self.num_angle_bin = 24
+        self.max_num_obj = 128
         self.type2class = {
             "antenna": 0
         }
@@ -169,7 +169,7 @@ class TelecomTowerDetectionDataset(Dataset):
             np.zeros((1, 3), dtype=np.float32),
             np.ones((1, 3), dtype=np.float32),
         ]
-        self.max_num_obj = 64
+        self.max_num_obj = self.dataset_config.max_num_obj
 
     def __len__(self):
         return len(self.scan_names)

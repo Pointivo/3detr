@@ -127,7 +127,7 @@ def make_args_parser():
     ##### I/O #####
     parser.add_argument("--checkpoint_dir", default=None, type=str)
     parser.add_argument("--log_every", default=10, type=int)
-    parser.add_argument("--log_metrics_every", default=20, type=int)
+    parser.add_argument("--log_metrics_every", default=1, type=int)
     parser.add_argument("--save_separate_checkpoint_every_epoch", default=100, type=int)
 
     ##### Distributed Training #####

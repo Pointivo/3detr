@@ -374,7 +374,7 @@ def build_encoder(args):
         )
         interim_downsampling = PointnetSAModuleVotes(
             radius=0.4,
-            nsample=32,
+            nsample=64,
             npoint=args.preenc_npoints // 2,
             mlp=[args.enc_dim, 256, 256, args.enc_dim],
             normalize_xyz=True,
