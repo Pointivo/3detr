@@ -381,6 +381,8 @@ class APCalculator(object):
             ap_vals = np.array(list(ap.values()), dtype=np.float32)
             ap_vals[np.isnan(ap_vals)] = 0
             ret_dict["mAP"] = ap_vals.mean()
+            for idx_, ap_value in enumerate(ap_vals.flatten()):
+                ret_dict[f"AP_{idx_}"] = ap_value
             rec_list = []
             for key in sorted(ap.keys()):
                 clsname = self.class2type_map[key] if self.class2type_map else str(key)
@@ -391,6 +393,8 @@ class APCalculator(object):
                     ret_dict["%s Recall" % (clsname)] = 0
                     rec_list.append(0)
             ret_dict["AR"] = np.mean(rec_list)
+            for idx_, ar_value in enumerate(rec_list):
+                ret_dict[f"AR_{idx_}"] = ar_value
             overall_ret[ap_iou_thresh] = ret_dict
         return overall_ret
 
@@ -438,10 +442,9 @@ class APCalculator(object):
     def metrics_to_dict(self, overall_ret):
         metrics_dict = {}
         for ap_iou_thresh in self.ap_iou_thresh:
-            metrics_dict[f"mAP_{ap_iou_thresh}"] = (
-                overall_ret[ap_iou_thresh]["mAP"] * 100
-            )
-            metrics_dict[f"AR_{ap_iou_thresh}"] = overall_ret[ap_iou_thresh]["AR"] * 100
+            for key, value in overall_ret[ap_iou_thresh].items():
+                if ('AP' in key) or ('AR' in key):
+                    metrics_dict[f"{key}_{ap_iou_thresh}"] = value * 100
         return metrics_dict
 
     def reset(self):
