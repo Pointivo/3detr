@@ -2,7 +2,7 @@ import os
 import sys
 import argparse
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 import numpy as np
 import torch
@@ -48,6 +48,8 @@ def make_args_parser():
 
     ### MLP heads for predicting bounding boxes
     parser.add_argument("--mlp_dropout", default=0.3, type=float)
+    parser.add_argument("--nsemcls", default=1, type=int,
+                        help="Number of semantic object classes. Can be inferred from dataset")
 
     ### Other model params
     parser.add_argument("--preenc_npoints", default=2048, type=int)
@@ -83,7 +85,10 @@ def make_args_parser():
 
 
 @torch.no_grad()
-def model_predict(args, models: Dict, dataloaders: Dict, post_process_config_dict: Dict = None) -> Dict:
+def model_predict(args, models: Dict, dataloaders: Dict, post_process_config_dict: Dict = None,
+                  save_preds: bool = False, **kwargs) -> Optional[Dict]:
+    # TODO: This routine predicts on all point clouds from the data-loader and saves them all to disk at the end.
+    #  Instead, the routine should save predictions as it performs on each point cloud.
     model, model_no_ddp = models["model"], models["model_no_ddp"]
     if args.test_ckpt is None or not os.path.isfile(args.test_ckpt):
         f"Please specify a test checkpoint using --test_ckpt. Found invalid value {args.test_ckpt}"
@@ -110,7 +115,7 @@ def model_predict(args, models: Dict, dataloaders: Dict, post_process_config_dic
         outputs["outputs"] = all_gather_dict(outputs["outputs"])
         if is_primary():
             mem_mb = torch.cuda.max_memory_allocated() / (1024 ** 2)
-            print(f"Evaluating batch {idx} | Mem {mem_mb:0.2f}MB")
+            print(f"Performing inference on batch {idx} | Mem {mem_mb:0.2f}MB")
         barrier()
 
         # perform refinement through NMS and thresholding
@@ -135,7 +140,7 @@ def model_predict(args, models: Dict, dataloaders: Dict, post_process_config_dic
                 pt3 = Point3D(x=bbox_corners[4][0], y=bbox_corners[4][1], z=bbox_corners[4][2])
                 bbox3d = OrientedBbox3D.from_cuboid3d(
                     cuboid3d=Cuboid3D.from_points(vertex=vertex, points_connected_to_vertex=[pt1, pt2, pt3]),
-                    class_label=class_label)
+                    class_label="class_label")
                 return np.asarray([bbox3d.x, bbox3d.y, bbox3d.z,
                                    bbox3d.x_size, bbox3d.y_size, bbox3d.z_size,
                                    np.deg2rad(bbox3d.yaw_degree)])
@@ -194,7 +199,29 @@ def model_predict(args, models: Dict, dataloaders: Dict, post_process_config_dic
                 'bbox_corners': box_corners,
             }
 
-    return predictions
+        if save_preds:
+            for name, pred in predictions.items():
+                if args.store_halved_bbox_size:  # for consistency with votenet dataset creation
+                    pred["bbox_params"][:, 3:6] *= 0.5
+
+                bounding_boxes_3d = []
+                bbox_params = pred["bbox_params"]
+                for idx in range(bbox_params.shape[0]):
+                    obb3d = OrientedBbox3D(
+                        x=bbox_params[idx][0], y=bbox_params[idx][1], z=bbox_params[idx][2],
+                        x_size=bbox_params[idx][3], y_size=bbox_params[idx][4], z_size=bbox_params[idx][5],
+                        roll_degree=0, pitch_degree=0, yaw_degree=np.rad2deg(bbox_params[idx][6]),
+                        class_label=kwargs["dataset_config"].class2type[int(bbox_params[idx][7])],
+                        confidence_score=bbox_params[idx][8])
+                    bounding_boxes_3d.append(obb3d)
+                # assuming that point cloud files are saved as: project_id.npz
+                odld3d = ObjectDetectionLabeledData3D(project_id=name, bounding_boxes_3d=bounding_boxes_3d)
+                odld3d_save_path = Path(args.predictions_save_dir) / f"{name}.od3d_predicted.json"
+                odld3d.to_json_file(odld3d_save_path)
+                print(f"Saved prediction: {odld3d_save_path}")
+
+    if not save_preds:
+        return predictions
 
 
 def main(local_rank, args):
@@ -219,10 +246,10 @@ def main(local_rank, args):
         torch.cuda.manual_seed_all(args.seed + get_rank())
 
     # dataset
-    dataset_config = TelecomTowerDatasetConfig()
+    dataset_config = TelecomTowerDatasetConfig(args)
     dataset = TelecomTowerPredictionDataset(
         path_to_data_dir=Path(args.dataset_root_dir), num_points=args.point_cloud_points, use_color=args.use_color,
-        use_height=args.use_height)  # build_dataset(args)
+        use_height=args.use_height)
     sampler = DistributedSampler(dataset, shuffle=False) if is_distributed() else \
         torch.utils.data.SequentialSampler(dataset)
     dataloader = DataLoader(dataset, sampler=sampler, batch_size=args.batchsize_per_gpu,
@@ -246,25 +273,8 @@ def main(local_rank, args):
                            dataset_config=dataset_config)
 
     # prediction
-    preds = model_predict(args=args, models=models, dataloaders=dataloaders,
-                          post_process_config_dict=post_process_config_dict)
-
-    for name, pred in preds.items():
-        if args.store_halved_bbox_size:  # for consistency with votenet dataset creation
-            pred["bbox_params"][:, 3:6] *= 0.5
-
-        bounding_boxes_3d = []
-        bbox_params = pred["bbox_params"]
-        for idx in range(bbox_params.shape[0]):
-            obb3d = OrientedBbox3D(x=bbox_params[idx][0], y=bbox_params[idx][1], z=bbox_params[idx][2],
-                                   x_size=bbox_params[idx][3], y_size=bbox_params[idx][4], z_size=bbox_params[idx][5],
-                                   roll_degree=0, pitch_degree=0, yaw_degree=np.rad2deg(bbox_params[idx][6]),
-                                   class_label=dataset_config.class2type[int(bbox_params[idx][7])],
-                                   confidence_score=bbox_params[idx][8])
-            bounding_boxes_3d.append(obb3d)
-        # assuming that point cloud files are saved as: project_id.npz
-        odld3d = ObjectDetectionLabeledData3D(project_id=name, bounding_boxes_3d=bounding_boxes_3d)
-        odld3d.to_json_file(Path(args.predictions_save_dir) / f"{name}.od3d_predicted.json")
+    model_predict(args=args, models=models, dataloaders=dataloaders, post_process_config_dict=post_process_config_dict,
+                  save_preds=True, dataset_config=dataset_config)
 
 
 def launch_distributed(args):
